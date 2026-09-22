@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mundo Brote - Panel de Control</title>
+    <title>Mundo Brote - Panel de Control Multi-Tenant</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -62,7 +62,8 @@
             padding-bottom: 15px;
             border-bottom: 1px solid rgba(255,255,255,0.12);
         }
-        .dash-header h1 { font-size: 1.8rem; color: #4ade80; display: flex; align-items: center; gap: 8px; }
+        .dash-header h1 { font-size: 1.6rem; color: #4ade80; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .badge-client { font-size: 0.85rem; color: #facc15; background: rgba(250,204,21,0.15); padding: 4px 10px; border-radius: 20px; border: 1px solid rgba(250,204,21,0.3); }
         .btn-logout {
             background: rgba(220, 38, 38, 0.2);
             color: #ef5350;
@@ -182,16 +183,8 @@
         th { color: #81c784; font-weight: 700; }
         .table-img { width: 48px; height: 48px; object-fit: cover; border-radius: 6px; }
         
-        .price-sale {
-            color: #4ade80;
-            font-weight: 700;
-        }
-        .price-before {
-            color: #90a4ae;
-            font-size: 0.8rem;
-            text-decoration: line-through;
-            margin-left: 5px;
-        }
+        .price-sale { color: #4ade80; font-weight: 700; }
+        .price-before { color: #90a4ae; font-size: 0.8rem; text-decoration: line-through; margin-left: 5px; }
 
         .stock-control {
             display: inline-flex;
@@ -212,12 +205,7 @@
             padding: 0 4px;
         }
         .btn-qty:hover { color: #ffffff; }
-        .qty-val {
-            font-weight: 700;
-            font-size: 0.9rem;
-            min-width: 24px;
-            text-align: center;
-        }
+        .qty-val { font-weight: 700; font-size: 0.9rem; min-width: 24px; text-align: center; }
 
         .badge-status {
             display: inline-block;
@@ -243,11 +231,7 @@
         }
         .var-chip.var-agotada { opacity: 0.5; border-color: rgba(239, 83, 80, 0.4); }
 
-        .actions-group {
-            display: flex;
-            gap: 6px;
-            align-items: center;
-        }
+        .actions-group { display: flex; gap: 6px; align-items: center; }
         .btn-edit {
             background: rgba(250, 204, 21, 0.15);
             border: 1px solid rgba(250, 204, 21, 0.4);
@@ -283,7 +267,7 @@
 
     <div id="dashboardSection" class="dashboard-container">
         <div class="dash-header">
-            <h1>🌿 Gestión de Productos y Stock</h1>
+            <h1 id="dashMainTitle">🌿 Gestión de Productos y Stock</h1>
             <button class="btn-logout" onclick="logout()">Cerrar Sesión</button>
         </div>
 
@@ -391,6 +375,11 @@
         let mbAdminDb = null;
         let cachedProducts = [];
 
+        // CAPTURAR CLIENTE DE LA URL (ej: admin.html?client=plantas)
+        const urlParams = new URLSearchParams(window.location.search);
+        const CLIENT_ID = urlParams.get('client') || 'plantas';
+        document.getElementById('dashMainTitle').innerHTML = `🌿 Gestión de Stock <span class="badge-client">Cliente: ${CLIENT_ID}</span>`;
+
         function getSupabase() {
             if (!mbAdminDb && window.supabase) {
                 mbAdminDb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -445,9 +434,11 @@
             }
 
             try {
+                // FILTRAR POR CLIENT_ID
                 const { data: productos, error } = await client
                     .from('productos')
                     .select('*')
+                    .eq('client_id', CLIENT_ID)
                     .order('id', { ascending: true });
 
                 if (error) {
@@ -459,7 +450,7 @@
                 document.getElementById('totalCount').innerText = cachedProducts.length;
 
                 if (cachedProducts.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">No hay productos registrados.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">No hay productos registrados para este cliente.</td></tr>';
                     return;
                 }
 
@@ -588,7 +579,9 @@
                 if (name) opciones.push({ name, img, stock, status });
             });
 
+            // INCLUYE EL CLIENT_ID ASOCIADO AL CREAR/MODIFICAR
             const productPayload = {
+                client_id: CLIENT_ID,
                 nombre: document.getElementById('pNombre').value.trim(),
                 categoria: document.getElementById('pCategoria').value,
                 precio: formattedPrice,
