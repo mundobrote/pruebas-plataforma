@@ -1394,6 +1394,10 @@
         const SUPABASE_KEY = "sb_publishable_QB6TAndK9BizyHSec-xTvg_6VHLUGXX";
         const mbDb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+        // CAPTURAR CLIENTE DE LA URL (ej: index.html?client=plantas)
+        const urlParams = new URLSearchParams(window.location.search);
+        const CLIENT_ID = urlParams.get('client') || 'plantas';
+
         const API_CHAT_URL = "https://bot-mundobrote-production.up.railway.app/api/chat";
 
         let productsData = [];
@@ -1428,6 +1432,7 @@
                 const { data, error } = await mbDb
                     .from('productos')
                     .select('*')
+                    .eq('client_id', CLIENT_ID)
                     .order('id', { ascending: true });
 
                 if (error) {
@@ -1439,7 +1444,6 @@
                 renderCatalog();
                 renderNovedades();
                 
-                // Verifica si la página se cargó con un hash directo (#producto-ID)
                 checkUrlHash();
             } catch (err) {
                 console.error("Error de conexión:", err);
@@ -1599,10 +1603,6 @@
                 slider.scrollBy({ left: direction * slider.clientWidth, behavior: 'smooth' });
             }
         }
-
-        // ============================================================
-        // LÓGICA DE DETALLE Y ENRUTAMIENTO POR HASH
-        // ============================================================
 
         function openPlantDetail(p, updateHash = true) {
             const isAgotado = (p.estado === 'agotado' || p.stock <= 0);
