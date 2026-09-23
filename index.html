@@ -1165,7 +1165,7 @@
         <div id="view-home" class="page-view active">
             <h1 class="home-title"><span>🌿</span> Mundo Brote</h1>
             <p class="home-subtitle">
-                Bienvenidos, brotecitos. Preparamos esta selección especial para ayudarte a elegir el próximo brote que transformará tus espacios en un hermoso refugio natural y te acompañará para que nunca estés solo.
+                Bienvenidos, brotecitos. Preparamos esta selección especial para ayudarle a elegir el próximo brote que transformará sus espacios en un hermoso refugio natural y lo acompañará para que nunca esté solo.
             </p>
 
             <div class="search-filter-container">
@@ -1425,6 +1425,51 @@
             if (str.includes('verde')) return '#4caf50';
             return '#81c784';
         }
+
+        // ==========================================
+        // VERIFICACIÓN DE ESTADO COMERCIAL (B2B)
+        // ==========================================
+        async function checkClientStatusSupabase() {
+            try {
+                const { data, error } = await mbDb
+                    .from('clients_config')
+                    .select('is_active, status_message')
+                    .eq('client_id', CLIENT_ID)
+                    .single();
+
+                if (data && data.is_active === false) {
+                    renderMaintenanceOverlay(data.status_message);
+                }
+            } catch (e) {
+                console.log("Infraestructura operativa.");
+            }
+        }
+
+        function renderMaintenanceOverlay(customMessage) {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+                background: #0f172a; color: #f8fafc;
+                z-index: 99999; display: flex; flex-direction: column;
+                align-items: center; justify-content: center; text-align: center;
+                padding: 24px; font-family: 'Inter', sans-serif;
+            `;
+            const msgText = customMessage || 'Este espacio comercial se encuentra temporalmente sin operaciones de venta activas.';
+            overlay.innerHTML = `
+                <div style="font-size: 1.5rem; margin-bottom: 20px; opacity: 0.6; color: #94a3b8;">✦</div>
+                <h2 style="font-size: 1.5rem; margin-bottom: 12px; font-weight: 600; letter-spacing: -0.02em; color: #f8fafc;">Canal comercial en pausa</h2>
+                <p style="max-width: 440px; color: #94a3b8; line-height: 1.6; margin-bottom: 30px; font-size: 0.95rem;">
+                    ${msgText}
+                </p>
+                <div style="font-size: 0.75rem; color: #475569; letter-spacing: 0.08em; text-transform: uppercase;">
+                    Infraestructura operada por Axoptec
+                </div>
+            `;
+            document.body.innerHTML = '';
+            document.body.appendChild(overlay);
+            document.body.style.overflow = 'hidden';
+        }
+        // ==========================================
 
         async function fetchProductsFromSupabase() {
             try {
@@ -1831,7 +1876,9 @@
             document.getElementById('foto-modal-completa').style.display = 'none';
         }
 
+        // Inicialización secuencial: Carga productos + valida estatus corporativo
         fetchProductsFromSupabase();
+        checkClientStatusSupabase();
         showView('home');
     </script>
 </body>
