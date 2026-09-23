@@ -108,6 +108,16 @@
         .form-control:focus { border-color: #4ade80; }
         textarea.form-control { resize: vertical; min-height: 70px; }
 
+        .preview-img {
+            width: 70px;
+            height: 70px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-top: 6px;
+            border: 1px dashed rgba(255, 255, 255, 0.3);
+            display: none;
+        }
+
         .variants-box {
             background: rgba(0,0,0,0.25);
             border: 1px solid rgba(255,255,255,0.08);
@@ -309,13 +319,17 @@
                     </div>
 
                     <div class="form-group">
-                        <label>Ruta Foto Principal * (Ej: interior/ficus.jpg)</label>
-                        <input type="text" id="pFoto" class="form-control" placeholder="interior/ficus.jpg" required>
+                        <label>Subir Foto Principal desde PC *</label>
+                        <input type="file" id="pFotoFile" class="form-control" accept="image/*" onchange="previewFile(this, 'previewMain')">
+                        <input type="hidden" id="pFoto" required>
+                        <img id="previewMain" class="preview-img" alt="Vista previa">
                     </div>
 
                     <div class="form-group">
-                        <label>Ruta Foto Referencia Adulta (Opcional)</label>
-                        <input type="text" id="pFotoGrande" class="form-control" placeholder="interior/ficusgrande.jpg">
+                        <label>Subir Foto Referencia Adulta desde PC (Opcional)</label>
+                        <input type="file" id="pFotoGrandeFile" class="form-control" accept="image/*" onchange="previewFile(this, 'previewGrande')">
+                        <input type="hidden" id="pFotoGrande">
+                        <img id="previewGrande" class="preview-img" alt="Vista previa grande">
                     </div>
 
                     <div class="form-group">
@@ -375,7 +389,6 @@
         let mbAdminDb = null;
         let cachedProducts = [];
 
-        // CAPTURAR CLIENTE DE LA URL (ej: admin.html?client=plantas)
         const urlParams = new URLSearchParams(window.location.search);
         const CLIENT_ID = urlParams.get('client') || 'plantas';
         document.getElementById('dashMainTitle').innerHTML = `🌿 Gestión de Stock <span class="badge-client">Cliente: ${CLIENT_ID}</span>`;
@@ -410,17 +423,47 @@
             location.reload();
         }
 
+        function previewFile(input, previewId) {
+            const file = input.files[0];
+            const preview = document.getElementById(previewId);
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                    if (previewId === 'previewMain') {
+                        document.getElementById('pFoto').value = e.target.result;
+                    } else if (previewId === 'previewGrande') {
+                        document.getElementById('pFotoGrande').value = e.target.result;
+                    }
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
         function addVariantRow(name = '', img = '', stock = 3) {
             const container = document.getElementById('variantsContainer');
             const row = document.createElement('div');
             row.className = 'variant-row';
             row.innerHTML = `
                 <input type="text" class="form-control var-name" placeholder="Color (ej: Rosado)" value="${name}" required>
-                <input type="text" class="form-control var-img" placeholder="Ruta foto opción" value="${img}">
+                <input type="file" class="form-control var-file" accept="image/*" onchange="convertVarFile(this)">
+                <input type="hidden" class="var-img" value="${img}">
                 <input type="number" class="form-control var-stock" placeholder="Stock" value="${stock}" min="0" required>
                 <button type="button" class="btn-remove-var" onclick="this.parentElement.remove()">✕</button>
             `;
             container.appendChild(row);
+        }
+
+        function convertVarFile(input) {
+            const file = input.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    input.parentElement.querySelector('.var-img').value = e.target.result;
+                }
+                reader.readAsDataURL(file);
+            }
         }
 
         async function loadInventory() {
@@ -434,7 +477,6 @@
             }
 
             try {
-                // FILTRAR POR CLIENT_ID
                 const { data: productos, error } = await client
                     .from('productos')
                     .select('*')
@@ -526,8 +568,25 @@
             document.getElementById('pPrecioNum').value = product.precio_num || parseInt(product.precio.replace(/[^0-9]/g, '')) || 0;
             document.getElementById('pPrecioAntes').value = (product.precio_antes !== null && product.precio_antes !== undefined) ? product.precio_antes : '';
             document.getElementById('pStock').value = product.stock !== undefined ? product.stock : 3;
-            document.getElementById('pFoto').value = product.foto;
+            
+            document.getElementById('pFoto').value = product.foto || '';
+            const prevMain = document.getElementById('previewMain');
+            if (product.foto) {
+                prevMain.src = product.foto;
+                prevMain.style.display = 'block';
+            } else {
+                prevMain.style.display = 'none';
+            }
+
             document.getElementById('pFotoGrande').value = product.foto_grande || '';
+            const prevGrande = document.getElementById('previewGrande');
+            if (product.foto_grande) {
+                prevGrande.src = product.foto_grande;
+                prevGrande.style.display = 'block';
+            } else {
+                prevGrande.style.display = 'none';
+            }
+
             document.getElementById('pEsNovedad').value = product.es_novedad ? 'true' : 'false';
             document.getElementById('pCuidados').value = product.cuidados || '';
 
@@ -551,6 +610,10 @@
             document.getElementById('productForm').reset();
             document.getElementById('editProductId').value = '';
             document.getElementById('pPrecioAntes').value = '';
+            document.getElementById('pFoto').value = '';
+            document.getElementById('pFotoGrande').value = '';
+            document.getElementById('previewMain').style.display = 'none';
+            document.getElementById('previewGrande').style.display = 'none';
             document.getElementById('variantsContainer').innerHTML = '';
             document.getElementById('pStock').value = '3';
             document.getElementById('formTitle').innerText = '✨ Agregar Nuevo Producto';
@@ -569,6 +632,12 @@
             const stockNum = parseInt(document.getElementById('pStock').value) || 0;
             const formattedPrice = '$' + precioNum.toLocaleString('es-CL');
 
+            const fotoVal = document.getElementById('pFoto').value.trim();
+            if (!fotoVal) {
+                alert("Por favor selecciona una foto principal desde tu computadora.");
+                return;
+            }
+
             const varRows = document.querySelectorAll('.variant-row');
             let opciones = [];
             varRows.forEach(row => {
@@ -579,7 +648,6 @@
                 if (name) opciones.push({ name, img, stock, status });
             });
 
-            // INCLUYE EL CLIENT_ID ASOCIADO AL CREAR/MODIFICAR
             const productPayload = {
                 client_id: CLIENT_ID,
                 nombre: document.getElementById('pNombre').value.trim(),
@@ -588,7 +656,7 @@
                 precio_num: precioNum,
                 precio_antes: precioAntes,
                 stock: stockNum,
-                foto: document.getElementById('pFoto').value.trim(),
+                foto: fotoVal,
                 foto_grande: document.getElementById('pFotoGrande').value.trim() || null,
                 cuidados: document.getElementById('pCuidados').value.trim(),
                 es_novedad: document.getElementById('pEsNovedad').value === 'true',
